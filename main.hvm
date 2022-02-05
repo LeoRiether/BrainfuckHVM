@@ -1,0 +1,112 @@
+(If 1 then else) = then
+(If 0 then else) = else
+
+(Head (Cons x xs)) = x
+(Head Nil) = 0
+(Tail (Cons x xs)) = xs
+(Tail Nil) = Nil
+
+//--- Sparse Segment Tree ---//
+(LoBound) = 0
+(HiBound) = 30000
+
+(GetI i Nil l r) = 0
+(GetI i (Leaf x) l r) = x
+(GetI i (Node tl tr) l r) =
+    let mid = (/ (+ l r) 2)
+    (If (> i mid)
+        (GetI i tr (+ 1 mid) r)
+        (GetI i tl l mid))
+
+(UpdateI i f Nil l r) =
+    let mid = (/ (+ l r) 2)
+    (If (< i l) Nil
+    (If (> i r) Nil
+    (If (== l r) (Leaf (f 0))
+    (Node
+        (UpdateI i f Nil l mid)
+        (UpdateI i f Nil (+ 1 mid) r)))))
+(UpdateI i f (Leaf x) l r) = (Leaf (f x))
+(UpdateI i f (Node tl tr) l r) =
+    let mid = (/ (+ l r) 2)
+    (If (> i mid)
+        (Node tl (UpdateI i f tr (+ 1 mid) r))
+        (Node (UpdateI i f tl l mid) tr))
+
+// tree[i]
+(Get i tree) = (GetI i tree LoBound HiBound)
+
+// tree[i] <- f(tree[i])
+(Update i f tree) = (UpdateI i f tree LoBound HiBound)
+
+// tree[i] <- x
+(Set i x tree) =
+    let f = λ_ x // outputs x no matter what
+    (Update i f tree)
+
+//--- Instructions ---//
+// Builds a vector (segtree) of instructions
+(InstructionVec ptr Nil tree) = tree
+(InstructionVec ptr (Cons instr rest) tree) =
+    let tree = (Set ptr instr tree)
+    (InstructionVec (+ 1 ptr) rest tree)
+
+// Builds a vector (segtree) of matching brackets
+// matches[i] = the position of the bracket that matches the one on `i`
+(MatchingBrackets ptr Nil matches Nil) = matches
+(MatchingBrackets ptr Nil matches (Cons i stk)) = matches
+(MatchingBrackets ptr (Cons ClBrk rest) matches (Cons i stk)) =
+    let matches = (Set ptr i matches)
+    let matches = (Set i ptr matches)
+    (MatchingBrackets (+ 1 ptr) rest matches stk)
+(MatchingBrackets ptr (Cons OpBrk rest) matches Nil) = (MatchingBrackets (+ 1 ptr) rest matches (Cons ptr Nil))
+(MatchingBrackets ptr (Cons OpBrk rest) matches (Cons i stk)) = (MatchingBrackets (+ 1 ptr) rest matches (Cons ptr (Cons i stk)))
+(MatchingBrackets ptr (Cons instr rest) matches Nil) = (MatchingBrackets (+ 1 ptr) rest matches Nil)
+(MatchingBrackets ptr (Cons instr rest) matches (Cons i stk)) = (MatchingBrackets (+ 1 ptr) rest matches (Cons i stk))
+
+//--- Interpreter ---//
+(Run dp ip memory input instrvec matches 0) = Nil
+(Run dp ip memory input instrvec matches Next) = (Run (+ dp 1) (+ ip 1) memory input instrvec matches (Get (+ ip 1) instrvec))
+(Run dp ip memory input instrvec matches Prev) = (Run (- dp 1) (+ ip 1) memory input instrvec matches (Get (+ ip 1) instrvec))
+(Run dp ip memory input instrvec matches Plus) = 
+    let memory = (Update dp (λx (+ x 1)) memory)
+    (Run dp (+ 1 ip) memory input instrvec matches (Get (+ 1 ip) instrvec))
+(Run dp ip memory input instrvec matches Minus) = 
+    let memory = (Update dp (λx (- x 1)) memory)
+    (Run dp (+ 1 ip) memory input instrvec matches (Get (+ 1 ip) instrvec))
+(Run dp ip memory input instrvec matches Write) =
+    let output = (Get dp memory)
+    let rest = (Run dp (+ 1 ip) memory input instrvec matches (Get (+ 1 ip) instrvec))
+    (Cons output rest)
+(Run dp ip memory input instrvec matches Read) =
+    let x = (Head input)
+    let input = (Tail input)
+    let memory = (Set dp x memory)
+    (Run dp (+ 1 ip) memory input instrvec matches (Get (+ 1 ip) instrvec))
+(Run dp ip memory input instrvec matches OpBrk) = 
+    let x = (Get dp memory)
+    let match = (Get ip matches)
+    (If (== x 0)
+        (Run dp (+ 1 match) memory input instrvec matches (Get (+ 1 match) instrvec))
+        (Run dp (+ 1 ip) memory input instrvec matches (Get (+ 1 ip) instrvec)))
+(Run dp ip memory input instrvec matches ClBrk) = 
+    let x = (Get dp memory)
+    let match = (Get ip matches)
+    (If (== x 0)
+        (Run dp (+ 1 ip) memory input instrvec matches (Get (+ 1 ip) instrvec))
+        (Run dp (+ 1 match) memory input instrvec matches (Get (+ 1 match) instrvec)))
+
+//--- Main ---//
+(Main) =
+    let dp = 0 // data pointer
+    let ip = 1 // instruction pointer
+    let memory = Nil // memory vector
+    let instrvec = (InstructionVec ip Instructions Nil) // instruction vector
+    let matches = (MatchingBrackets ip Instructions Nil Nil) // match vector
+    (Run dp ip memory Input instrvec matches (Get ip instrvec))
+
+// Every "Read" instruction reads one element from the list
+(Input) = (Cons 1234567 Nil)
+
+(Instructions) = (Cons Read (Cons Write (Cons Next (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons OpBrk (Cons Next (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons OpBrk (Cons Next (Cons Plus (Cons Plus (Cons Next (Cons Plus (Cons Plus (Cons Plus (Cons Next (Cons Plus (Cons Plus (Cons Plus (Cons Next (Cons Plus (Cons Prev (Cons Prev (Cons Prev (Cons Prev (Cons Minus (Cons ClBrk (Cons Next (Cons Plus (Cons Next (Cons Plus (Cons Next (Cons Minus (Cons Next (Cons Next (Cons Plus (Cons OpBrk (Cons Prev (Cons ClBrk (Cons Prev (Cons Minus (Cons ClBrk (Cons Next (Cons Next (Cons Write (Cons Next (Cons Minus (Cons Minus (Cons Minus (Cons Write (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons Plus (Cons Write (Cons Write (Cons Plus (Cons Plus (Cons Plus (Cons Write (Cons Next (Cons Next (Cons Write (Cons Prev (Cons Minus (Cons Write (Cons Prev (Cons Write (Cons Plus (Cons Plus (Cons Plus (Cons Write (Cons Minus (Cons Minus (Cons Minus (Cons Minus (Cons Minus (Cons Minus (Cons Write (Cons Minus (Cons Minus (Cons Minus (Cons Minus (Cons Minus (Cons Minus (Cons Minus (Cons Minus (Cons Write (Cons Next (Cons Next (Cons Plus (Cons Write (Cons Next (Cons Plus (Cons Plus (Cons Write Nil)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+

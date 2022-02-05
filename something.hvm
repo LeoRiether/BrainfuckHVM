@@ -1,0 +1,4 @@
+(Something Nil (Cons B rest)) = 0
+(Something stk (Cons A rest)) = 0
+
+(Main) = (Nothing)
